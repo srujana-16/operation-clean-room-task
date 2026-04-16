@@ -1,12 +1,5 @@
 # Assumptions Log
 
-This document records the important judgment calls behind the current implementation.
-
-The project intentionally contains ambiguous data and incomplete requirements. The purpose of this file is to make those decisions explicit so:
-- the current behavior is understandable
-- future changes know what to revisit
-- interview or review discussions can explain not just what was built, but why it was built that way
-
 ---
 
 ## Data Interpretation
