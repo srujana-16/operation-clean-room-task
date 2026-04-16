@@ -2,6 +2,7 @@ import type {
   HealthResponse,
   ReconciliationResult,
   Discrepancy,
+  DiscrepancyListResponse,
   PipelineQuality as PipelineQualityType,
   ARRResponse,
   NRRResponse,
@@ -15,6 +16,7 @@ import type {
   CustomerHealth,
   AuditEntry,
   ReconciliationFilters,
+  DuplicatesResponse,
   ApiResponse,
 } from '@/types';
 
@@ -96,9 +98,9 @@ export function runReconciliation(
 
 export function getDiscrepancies(
   filters?: ReconciliationFilters,
-): Promise<ApiResponse<Discrepancy[]>> {
+): Promise<DiscrepancyListResponse> {
   const qs = filters ? buildQueryString(filters as unknown as Record<string, unknown>) : '';
-  return request<ApiResponse<Discrepancy[]>>(`/reconciliation/discrepancies${qs}`);
+  return request<DiscrepancyListResponse>(`/reconciliation/discrepancies${qs}`);
 }
 
 export function getDiscrepancy(id: string): Promise<Discrepancy> {
@@ -117,9 +119,9 @@ export function resolveDiscrepancy(
 
 export function getDuplicates(
   classification?: string,
-): Promise<ApiResponse<Discrepancy[]>> {
+): Promise<DuplicatesResponse> {
   const qs = classification ? buildQueryString({ classification }) : '';
-  return request<ApiResponse<Discrepancy[]>>(`/reconciliation/duplicates${qs}`);
+  return request<DuplicatesResponse>(`/reconciliation/duplicates${qs}`);
 }
 
 export function getPipelineQuality(): Promise<PipelineQualityType> {

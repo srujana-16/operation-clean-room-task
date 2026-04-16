@@ -38,6 +38,26 @@ export interface ARRBreakdown {
   percentOfTotal: number;
 }
 
+export interface MonthlyTrend {
+  month: string;
+  revenue: number;
+  arr: number;
+}
+
+export interface RevenueBreakdownRow {
+  month: string;
+  new: number;
+  expansion: number;
+  contraction: number;
+  churn: number;
+}
+
+export interface ARRVsRevenueRow {
+  month: string;
+  arr: number;
+  revenue: number;
+}
+
 /** Result of an ARR calculation. */
 export interface ARRResult {
   /** Total ARR in USD. */
@@ -58,6 +78,12 @@ export interface ARRResult {
   avgARRPerCustomer: number;
   /** Median ARR per customer. */
   medianARRPerCustomer: number;
+  /** Monthly revenue + ARR trend */
+  monthlyTrend: MonthlyTrend[];
+  /** ARR vs collected revenue */
+  arrVsRevenue: ARRVsRevenueRow[];
+  /** Revenue movement breakdown */
+  breakdown: RevenueBreakdownRow[];
 }
 
 // ---------------------------------------------------------------------------

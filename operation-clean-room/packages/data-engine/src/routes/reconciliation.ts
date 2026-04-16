@@ -1,4 +1,9 @@
 import { Router } from 'express';
+import { fileURLToPath } from 'node:url';
+import { loadChargebeeSubscriptions } from '../ingestion/chargebee.js';
+import { loadStripePayments } from '../ingestion/stripe.js';
+import { detectDuplicates } from '../reconciliation/deduplication.js';
+import { runReconciliation } from '../reconciliation/service.js';
 
 export const reconciliationRouter = Router();
 
@@ -33,18 +38,107 @@ export const reconciliationRouter = Router();
 
 // TODO: Implement POST /api/reconciliation/run
 // reconciliationRouter.post('/run', async (req, res) => { ... });
+reconciliationRouter.post('/run', async (_req, res, next) => {
+  try {
+    const result = await runReconciliation();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // TODO: Implement GET /api/reconciliation/discrepancies
 // reconciliationRouter.get('/discrepancies', async (req, res) => { ... });
+reconciliationRouter.get('/discrepancies', async (req, res, next) => {
+  try {
+    const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
+    const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+    const result = await runReconciliation();
+
+    const filteredDiscrepancies = result.discrepancies.filter((discrepancy) => {
+      if (severity && discrepancy.severity !== severity) {
+        return false;
+      }
+
+      if (type && discrepancy.type !== type) {
+        return false;
+      }
+
+      return true;
+    });
+
+    res.json({
+      total: filteredDiscrepancies.length,
+      summary: result.summary,
+      records: filteredDiscrepancies,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // TODO: Implement GET /api/reconciliation/discrepancies/:id
 // reconciliationRouter.get('/discrepancies/:id', async (req, res) => { ... });
+reconciliationRouter.get('/discrepancies/:id', async (req, res, next) => {
+  try {
+    const result = await runReconciliation();
+    const discrepancy = result.discrepancies.find((entry) => entry.id === req.params.id);
+
+    if (!discrepancy) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: `No discrepancy found for id ${req.params.id}`,
+      });
+      return;
+    }
+
+    res.json(discrepancy);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // TODO: Implement POST /api/reconciliation/discrepancies/:id/resolve
 // reconciliationRouter.post('/discrepancies/:id/resolve', async (req, res) => { ... });
 
 // TODO: Implement GET /api/reconciliation/duplicates
 // reconciliationRouter.get('/duplicates', async (req, res) => { ... });
+reconciliationRouter.get('/duplicates', async (req, res, next) => {
+  try {
+    const classification =
+      typeof req.query.classification === 'string' ? req.query.classification : undefined;
+
+    const [stripePayments, chargebeeSubscriptions] = await Promise.all([
+      loadStripePayments(DATA_DIR),
+      loadChargebeeSubscriptions(DATA_DIR),
+    ]);
+
+    const duplicates = await detectDuplicates(stripePayments, chargebeeSubscriptions);
+    const filteredDuplicates = classification
+      ? duplicates.filter((duplicate) => duplicate.classification === classification)
+      : duplicates;
+
+    res.json({
+      total: filteredDuplicates.length,
+      byClassification: {
+        true_duplicate: filteredDuplicates.filter(
+          (duplicate) => duplicate.classification === 'true_duplicate',
+        ).length,
+        migration: filteredDuplicates.filter(
+          (duplicate) => duplicate.classification === 'migration',
+        ).length,
+        uncertain: filteredDuplicates.filter(
+          (duplicate) => duplicate.classification === 'uncertain',
+        ).length,
+      },
+      records: filteredDuplicates,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // TODO: Implement GET /api/reconciliation/pipeline
 // reconciliationRouter.get('/pipeline', async (req, res) => { ... });
+
+const DATA_DIR = fileURLToPath(new URL('../../../../data', import.meta.url));

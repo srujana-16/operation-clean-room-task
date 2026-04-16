@@ -44,5 +44,54 @@ export function parseAmbiguousDate(
   },
 ): Date {
   // TODO: Implement ambiguous date parsing with contextual disambiguation
-  throw new Error('Not implemented');
+  const trimmed = dateStr.trim();
+
+  if (!trimmed) {
+    throw new Error('Date string is empty');
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return new Date(`${trimmed.slice(0, 10)}T00:00:00.000Z`);
+  }
+
+  const normalized = trimmed.replace(/[.\-]/g, '/');
+  const parts = normalized.split('/');
+
+  if (parts.length !== 3) {
+    throw new Error(`Unsupported date format: ${dateStr}`);
+  }
+
+  const first = Number(parts[0]);
+  const second = Number(parts[1]);
+  const rawYear = Number(parts[2]);
+
+  if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(rawYear)) {
+    throw new Error(`Invalid date components: ${dateStr}`);
+  }
+
+  const year = rawYear < 100 ? (rawYear >= 70 ? 1900 + rawYear : 2000 + rawYear) : rawYear;
+
+  if (first > 12) {
+    return createUtcDate(year, second, first);
+  }
+
+  if (second > 12) {
+    return createUtcDate(year, first, second);
+  }
+
+  if (context?.formatHint === 'DD/MM/YYYY') {
+    return createUtcDate(year, second, first);
+  }
+
+  if (context?.formatHint === 'MM/DD/YYYY') {
+    return createUtcDate(year, first, second);
+  }
+
+  // The CFO brief explicitly warns that the legacy system is likely DD/MM/YYYY,
+  // so use that as the default fallback for ambiguous legacy dates.
+  return createUtcDate(year, second, first);
+}
+
+function createUtcDate(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day));
 }

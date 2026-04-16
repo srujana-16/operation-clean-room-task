@@ -16,17 +16,46 @@ export interface HealthResponse {
 // ── Revenue & ARR ────────────────────────────────────────────────────────────
 
 export interface ARRBreakdown {
-  total: number;
-  newBusiness: number;
+  label: string;
+  arr: number;
+  customerCount: number;
+  percentOfTotal: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  revenue: number;
+  arr: number;
+}
+
+export interface RevenueBreakdownRow {
+  month: string;
+  new: number;
   expansion: number;
   contraction: number;
   churn: number;
 }
 
+export interface ARRVsRevenueRow {
+  month: string;
+  arr: number;
+  revenue: number;
+}
+
+
 export interface ARRResponse {
-  date: string;
-  arr: ARRBreakdown;
-  segments?: Record<string, ARRBreakdown>;
+  total: number;
+  bySegment: ARRBreakdown[];
+  byPlan: ARRBreakdown[];
+  byRegion: ARRBreakdown[];
+  byCohort: ARRBreakdown[];
+  asOfDate: string;
+  totalCustomers: number;
+  avgARRPerCustomer: number;
+  medianARRPerCustomer: number;
+  monthlyTrend: MonthlyTrend[];
+  breakdown: RevenueBreakdownRow[];
+  arrVsRevenue: ARRVsRevenueRow[];
 }
 
 export interface RevenueOverview {
@@ -41,6 +70,7 @@ export interface RevenueOverview {
   ltvCacRatio: number;
   paybackMonths: number;
 }
+
 
 // ── Churn ────────────────────────────────────────────────────────────────────
 
@@ -97,36 +127,99 @@ export interface CohortResponse {
 export type DiscrepancySeverity = 'critical' | 'high' | 'medium' | 'low';
 export type DiscrepancyType =
   | 'amount_mismatch'
-  | 'missing_record'
+  | 'missing_account'
   | 'date_mismatch'
   | 'status_mismatch'
-  | 'duplicate'
-  | 'classification_error';
-export type DiscrepancyStatus = 'open' | 'investigating' | 'resolved' | 'dismissed';
+  | 'duplicate_account'
+  | 'orphan_record'
+  | 'fx_discrepancy';
 
 export interface Discrepancy {
   id: string;
   type: DiscrepancyType;
   severity: DiscrepancySeverity;
-  status: DiscrepancyStatus;
   description: string;
-  systemA: string;
-  systemB: string;
-  valueA: string | number;
-  valueB: string | number;
-  delta: number;
-  customerId?: string;
+  sourceA: {
+    system: string;
+    recordId: string;
+    value: string | number | null;
+  };
+  sourceB: {
+    system: string;
+    recordId: string;
+    value: string | number | null;
+  };
+  customerName: string;
+  amount: number | null;
   detectedAt: string;
-  resolvedAt?: string;
-  resolutionNote?: string;
+  resolved: boolean;
+  resolutionNote: string | null;
 }
 
 export interface ReconciliationResult {
-  runId: string;
-  timestamp: string;
-  totalRecords: number;
-  matched: number;
-  discrepancies: number;
+  discrepancies: Discrepancy[];
+  summary: {
+    totalDiscrepancies: number;
+    bySeverity: Record<DiscrepancySeverity, number>;
+    byType: Record<DiscrepancyType, number>;
+    totalAmountImpact: number;
+    recordsProcessed: Record<string, number>;
+  };
+  metadata: {
+    startedAt: string;
+    completedAt: string;
+    durationMs: number;
+    options: Record<string, unknown>;
+  };
+}
+
+export interface DiscrepancyListResponse {
+  total: number;
+  summary: ReconciliationResult['summary'];
+  records: Discrepancy[];
+}
+
+export interface DuplicateRecord {
+  stripeRecord: {
+    customerId: string;
+    customerName: string;
+    subscriptionId: string;
+    status: string;
+    startDate: string;
+    endDate: string | null;
+    mrr: number;
+  };
+  chargebeeRecord: {
+    customerId: string;
+    customerName: string;
+    subscriptionId: string;
+    status: string;
+    startDate: string;
+    endDate: string | null;
+    mrr: number;
+  };
+  confidence: {
+    score: number;
+    matchedFields: string[];
+    unmatchedFields: string[];
+  };
+  hasOverlap: boolean;
+  overlapDays: number;
+  classification: 'true_duplicate' | 'migration' | 'uncertain';
+}
+
+export interface DuplicatesResponse {
+  total: number;
+  byClassification: {
+    true_duplicate: number;
+    migration: number;
+    uncertain: number;
+  };
+  records: DuplicateRecord[];
+}
+
+export interface ReconciliationRunSummary {
+  total: number;
   bySeverity: Record<DiscrepancySeverity, number>;
   byType: Record<DiscrepancyType, number>;
 }
@@ -312,6 +405,5 @@ export interface PaginationParams {
 export interface ReconciliationFilters extends PaginationParams {
   severity?: DiscrepancySeverity;
   type?: DiscrepancyType;
-  status?: DiscrepancyStatus;
   sort?: string;
 }

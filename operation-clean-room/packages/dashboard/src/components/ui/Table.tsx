@@ -21,7 +21,7 @@ interface TableProps<T> {
   rowKey?: (row: T, index: number) => string;
 }
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T extends object>({
   columns,
   data,
   onSort,
@@ -46,8 +46,10 @@ export function Table<T extends Record<string, unknown>>({
   const sortedData = useMemo(() => {
     if (!sort) return data;
     return [...data].sort((a, b) => {
-      const aVal = a[sort.key];
-      const bVal = b[sort.key];
+      const aRecord = a as Record<string, unknown>;
+      const bRecord = b as Record<string, unknown>;
+      const aVal = aRecord[sort.key];
+      const bVal = bRecord[sort.key];
       if (aVal === bVal) return 0;
       if (aVal == null) return 1;
       if (bVal == null) return -1;
@@ -57,7 +59,7 @@ export function Table<T extends Record<string, unknown>>({
   }, [data, sort]);
 
   const getKey = (row: T, index: number) =>
-    rowKey ? rowKey(row, index) : (row['id'] as string) ?? String(index);
+    rowKey ? rowKey(row, index) : ((row as Record<string, unknown>)['id'] as string) ?? String(index);
 
   return (
     <div
@@ -113,7 +115,11 @@ export function Table<T extends Record<string, unknown>>({
           ) : (
             sortedData.map((row, idx) => (
               <tr key={getKey(row, idx)} className="table-row">
-                {columns.map((col) => (
+                {columns.map((col) => {
+                  // Table columns are configured with string keys, so cast to a
+                  // generic dictionary shape when reading cell values.
+                  const rowRecord = row as Record<string, unknown>;
+                  return (
                   <td
                     key={col.key}
                     className={clsx(
@@ -122,10 +128,11 @@ export function Table<T extends Record<string, unknown>>({
                     )}
                   >
                     {col.render
-                      ? col.render(row[col.key], row)
-                      : (row[col.key] as React.ReactNode) ?? '\u2014'}
+                      ? col.render(rowRecord[col.key], row)
+                      : (rowRecord[col.key] as React.ReactNode) ?? '\u2014'}
                   </td>
-                ))}
+                  );
+                })}
               </tr>
             ))
           )}

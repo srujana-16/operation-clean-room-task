@@ -1,4 +1,6 @@
 import { LegacyInvoice } from './types.js';
+import { loadXML } from './xml-loader.js';
+import { parseAmbiguousDate } from '../utils/date-parser.js';
 
 /**
  * Load and normalize legacy billing system invoices.
@@ -31,5 +33,48 @@ import { LegacyInvoice } from './types.js';
  */
 export async function loadLegacyInvoices(dataDir: string): Promise<LegacyInvoice[]> {
   // TODO: Implement - load from legacy_invoices.xml, normalize, and return
-  throw new Error('Not implemented');
+  const rawData = await loadXML<{
+    invoices: {
+      invoice:
+        | Array<{
+            id: string;
+            customer_name: string;
+            amount: number | string;
+            currency: string;
+            date: string;
+            status: LegacyInvoice['status'];
+            description?: string;
+            payment_ref?: string;
+          }>
+        | {
+            id: string;
+            customer_name: string;
+            amount: number | string;
+            currency: string;
+            date: string;
+            status: LegacyInvoice['status'];
+            description?: string;
+            payment_ref?: string;
+          };
+    };
+  }>(`${dataDir}/legacy_invoices.xml`, {
+    arrayTags: ['invoice'],
+  });
+
+  const invoices = Array.isArray(rawData.invoices.invoice)
+    ? rawData.invoices.invoice
+    : [rawData.invoices.invoice];
+
+  return invoices.map((invoice) => ({
+    id: invoice.id,
+    customer_name: invoice.customer_name,
+    amount: Number(invoice.amount),
+    currency: invoice.currency.toLowerCase(),
+    date: parseAmbiguousDate(invoice.date, { formatHint: 'DD/MM/YYYY' })
+      .toISOString()
+      .slice(0, 10),
+    status: invoice.status,
+    description: invoice.description ?? null,
+    payment_ref: invoice.payment_ref && invoice.payment_ref.length > 0 ? invoice.payment_ref : null,
+  }));
 }
